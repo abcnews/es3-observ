@@ -1,0 +1,18 @@
+default:
+ - 'dev'
+ - 'connect:dev'
+ - 'watch'
+
+dev:
+ - 'clean'
+ - 'jshint:js'
+ - 'browserify:dev'
+ - 'copy:static'
+
+prod:
+ - 'clean'
+ - 'jshint:js'
+ - 'browserify:prod'
+ - 'uglify:prod'
+ - 'version'
+ - 'copy:static'

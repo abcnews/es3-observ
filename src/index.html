@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="">
+	<head>
+		<meta charset="utf-8">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>es3-observ</title>
+		<style>
+			body { font-family: sans-serif; }
+			.markup, code, script { display: block; padding: 10px; background-color: #f5f5f5; }
+			.markup em { display: block; }
+			code + code { margin-top: -15px; }
+			code span {
+				color: #999;
+			}
+			code span:first-of-type {
+				color: #00f;
+			}
+			h4 {
+				margin-bottom: 0;
+				padding: 5px 10px;
+				background-color: #333;
+				color: #f5f5f5;
+				font-weight: normal;
+				font-size: 0.9em;
+				text-transform: uppercase;
+			}
+			script {
+				padding: 0 0 0 10px;
+				white-space: pre;
+				tab-size: 4;
+				font-family: monospace;
+			}
+		</style>
+		<script src="scripts/index.js"></script>
+	</head>
+	<body>
+		<h1>es3-observ</h1>
+		<p>An ES3-compatible rewrite of observ, observ-struct & observ-varhash, exposed as a single API.</p>
+
+		<h2>ObservableValue</h2>
+		<p>You can edit the following text using the input below.</p>
+		<div class="markup">
+			<em id="output"></em>
+			<input id="input" type="text" />
+			<button id="clear">Clear</button>
+		</div>
+		<p>You can also set the value using the console:</p>
+		<code><span>&gt;</span> o.set(<span>value</span>);</code>
+		<h4>Markup</h4>
+		<code><pre>&lt;em id=&quot;output&quot;&gt;&lt;/em&gt;<br/>&lt;input id=&quot;input&quot; type=&quot;text&quot; /&gt;<br/>&lt;button id=&quot;clear&quot;&gt;Clear&lt;/button&gt;</pre></code>
+		<h4>Code</h4>
+		<script>
+// Create an observable value
+var o = observ.value();
+
+// Register a listener to update the UI
+o(function (value) {
+	var textValue = String(value == null ? '' : value);
+
+	input.value = textValue;
+	output.innerHTML = textValue;
+	clear.disabled = !textValue.length;
+
+});
+
+// Bind event handlers that:
+// * Set the value to `input`'s value when it changes, or
+// * Set it to an empty string if `clear` is clicked
+input.oninput = input.onkeyup = clear.onclick = function () {
+	o() === this.value || o.set(this.value);
+};
+
+// Initialise the value (Optional)
+o.set('Observable Value');
+
+// Logging
+o(function (value) { console.log('[value]', value); });
+		</script>
+
+		<h2>ComputedObservable</h2>
+		<p>Updating either of the first two values will trigger a computed value</p>
+		<div class="markup">
+			<input id="computedA" type="number" /> + <input id="computedB" type="number" /> = <label id="computedC"></label>
+		</div>
+		<p>Set either value using the console:</p>
+		<code><span>&gt;</span> oA.set(<span>value</span>);</code>
+		<code><span>&gt;</span> oB.set(<span>value</span>);</code>
+		<h4>Markup</h4>
+		<code><pre>&lt;input id=&quot;computedA&quot; type=&quot;number&quot; /&gt; + <br/>&lt;input id=&quot;computedB&quot; type=&quot;number&quot; /&gt; = <br/>&lt;label id=&quot;computedC&quot;&gt;&lt;/label&gt;</pre></code>
+		<h4>Code</h4>
+		<script>
+// Create two observables
+var oA = observ(); // alias of `observ.value()`
+var oB = observ();
+
+// Create a computed observable, based on the other two
+var oC = observ.computed([oA, oB], function (vA, vB) {
+	if (!isNaN(+vA + +vB)) {
+		return +vA + +vB;
+	} else {
+		return [String(vA), String(vB)].join('');
+	}
+});
+
+// Register listeners to update the UI
+oA(function (value) { computedA.value = value; });
+oB(function (value) { computedB.value = value; });
+oC(function (value) { computedC.innerHTML = value; });
+
+// Bind event handlers that set values
+computedA.oninput = computedA.onkeyup = function () {
+	oA() === this.value || oA.set(this.value);
+};
+computedB.oninput = computedB.onkeyup = function () {
+	oB() === this.value || oB.set(this.value);
+};
+
+// Initialise the first two values
+oA.set(1);
+oB.set(1);
+
+// Logging
+oC(function (value) { console.log('[computed]', value); });
+		</script>
+
+		<h2>ObservableStruct</h2>
+		<p>You can also observe nested structures which will call any affected listeners when they or any of their observable children change.</p>
+		<div class="markup">
+			<input id="structA" type="number" /> + <input id="structB" type="number" /> = <label id="structC"></label>
+		</div>
+		<p>Set either child value using the console:</p>
+		<code><span>&gt;</span> oS.a.set(<span>value</span>);</code>
+		<code><span>&gt;</span> oS.b.set(<span>value</span>);</code>
+		<h4>Markup</h4>
+		<code><pre>&lt;input id=&quot;structA&quot; type=&quot;number&quot; /&gt; <br/>&lt;input id=&quot;structB&quot; type=&quot;number&quot; /&gt; <br/>&lt;label id=&quot;structC&quot;&gt;&lt;/label&gt;</pre></code>
+		<h4>Code</h4>
+		<script>
+// Create an observable struct containing two observables
+var oS = observ.struct({
+	a: observ(),
+	b: observ()
+});
+
+// Register a single listener to update the UI
+oS(function (value) {
+	var c;
+
+	structA.value = value.a;
+	structB.value = value.b;
+
+	if (!isNaN(+value.a + +value.b)) {
+		c = +value.a + +value.b;
+	} else {
+		c = [String(value.a), String(value.b)].join('');
+	}
+
+	structC.innerHTML = c;
+});
+
+// Bind event handlers that set values
+structA.oninput = structA.onkeyup = function () {
+	oS.a() === this.value || oS.a.set(this.value);
+};
+structB.oninput = structB.onkeyup = function () {
+	oS.b() === this.value || oS.b.set(this.value);
+};
+
+// Initialise the two nested values
+oS.a.set(1);
+oS.b.set(1);
+
+// Logging (including diff)
+oS(function (value) { console.log('[struct]', value); });
+		</script>
+
+		<h2>ObservableVarhash</h2>
+		<p>You can observe a hash of keys/values, <strong>get</strong> the value of a single key, <strong>put</strong> (update or insert) a value into a key, or <strong>delete</strong> an existing key.</p>
+		<div class="markup">
+			<input id="varhashA" type="number" /> + <input id="varhashB" type="number" /><span id="varhashC"></span> = <label id="varhashD"></label>
+			<br>
+			<button id="varhashE">Add a third value</button>
+		</div>
+		<p>Set either child value using the console:</p>
+		<code><span>&gt;</span> oV.put('a', <span>value</span>);</code>
+		<code><span>&gt;</span> oV.put('b', <span>value</span>);</code>
+		<h4>Markup</h4>
+		<code><pre>&lt;input id=&quot;varhashA&quot; type=&quot;number&quot; /&gt;<br/>+ &lt;input id=&quot;varhashB&quot; type=&quot;number&quot; /&gt; <br/>&lt;span id=&quot;varhashC&quot;&gt;&lt;/span&gt;<br/>= &lt;label id=&quot;varhashD&quot;&gt;&lt;/label&gt;<br/>&lt;br&gt;<br/>&lt;button id=&quot;varhashE&quot;&gt;Add a third value&lt;/button&gt;</pre></code>
+		<h4>Code</h4>
+		<script>
+// Create an empty observable varhash
+var oV = observ.varhash({});
+
+// Register a single listener to update the UI
+oV(function (value) {
+	var d;
+
+	varhashA.value = value.a;
+	varhashB.value = value.b;
+	varhashC.innerHTML = value.c == null ? '' : (' + ' + value.c);
+
+	if (!isNaN(+value.a + +value.b + (value.c == null ? 0 : +value.c))) {
+		d = +value.a + +value.b + (value.c == null ? 0 : +value.c);
+	} else {
+		d = [String(value.a), String(value.b), String((value.c == null ? '' : value.c))].join('');
+	}
+
+	varhashD.innerHTML = d;
+	varhashE.innerHTML = (value.c == null ? 'Add a' : 'Remove the') + ' third value';
+});
+
+// Bind event handlers that put/delete new values
+varhashA.oninput = varhashA.onkeyup = function () {
+	oV.get('a') === this.value || oV.put('a', this.value);
+};
+varhashB.oninput = varhashB.onkeyup = function () {
+	oV.get('b') === this.value || oV.put('b', this.value);
+};
+varhashE.onclick = function () {
+	if (oV.get('c') == null) {
+		oV.put('c', prompt('Third value') || 0);
+	} else {
+		oV['delete']('c');
+	}
+};
+
+// Put two observable values into the varhash:
+oV.put('a', 1);
+oV.put('b', 1);
+
+// Logging (including diff)
+oV(function (value) { console.log('[varhash]', value); });
+		</script>
+	</body>
+</html>
